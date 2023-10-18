@@ -25,7 +25,8 @@ import soundfile as sf
 
 
 FRAME_LENGTH = 512 #Number of bins in each window (halved eventually)
-FILTER_NUMBER = 12 #Number of triangle peaks each window is being multiplyed by MINUS 2 (due to code)
+FILTER_NUMBER = 12 
+FILTER_NUMBER_PROXY = FILTER_NUMBER + 2 #Number of triangle peaks each window is being multiplyed by MINUS 2 (due to code)
 SAMPLE_FREQUENCY = 16000
 
 def mel_scale(data):
@@ -38,16 +39,16 @@ def inverse_mel(data):
 def plot_melscale(data):
     #Take sampling rate and upper and lower bounds of desired frqeuency
 
-    freq_high = 8000#Nyquist
-    freq_low = 300
+    freq_high = 8000    #Nyquist
+    freq_low = 300      #Chosen at random
+    
     mel_freq_high = mel_scale(freq_high)
-
     mel_freq_low = mel_scale(freq_low)
 
     mel_range = np.linspace(mel_freq_low, mel_freq_high, FILTER_NUMBER )
-
+    
     freq_range = inverse_mel(mel_range)
-
+    
     bins = np.floor((FRAME_LENGTH + 1) * freq_range / SAMPLE_FREQUENCY)
     print(mel_range)
     print(freq_range)
@@ -162,6 +163,7 @@ for m in filter_bank:
     plt.plot(m)
     
 #plt.plot(filter_bank_adjusted[2])
+
 all_power_vals = entire_utterance(r)
 
 #all_power_vals.reshape(int((len(r)/FRAME_LENGTH)*2)-2, FRAME_LENGTH)
