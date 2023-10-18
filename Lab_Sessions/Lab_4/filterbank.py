@@ -11,13 +11,17 @@ Spyder Editor
 
 This is a temporary script file.
 """
+#Maths Modules
 import numpy as np
+
+#PLotting Modules
 import matplotlib.pyplot as plt
-import sounddevice as sd
 import plotly.io as pio
 import plotly.express as px
-import soundfile as sf
 
+#Sound recording & playback Modules
+import sounddevice as sd
+import soundfile as sf
 
 
 FRAME_LENGTH = 512 #Number of bins in each window (halved eventually)
@@ -183,11 +187,3 @@ print(all_windows_filtered.shape, " filter values reshaped")
 filter_index = 0
 window_index = 0
 plot_filter(filter_index, window_index, power_vals_shaped, filter_bank)
-
-
-
-
-
-
-
-
