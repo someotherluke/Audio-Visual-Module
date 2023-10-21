@@ -106,7 +106,8 @@ if __name__ == '__main__':
     name = 'Dave'
     for file_number in range(0,recording_number):
         file_number = str(file_number)
-        file_name = name + file_number + speaker # Will the order they're in matter?
+        #Separate with underscores so it's easy to split
+        file_name = name + '_' + speaker + '_' + file_number # Will the order they're in matter?
         print(file_name)
         rec = VideoRecorder('videofile', file_name)
         #TODO: QUESTIONS: BEST RESOLUTION? Using 1920 by 1080 makes it really laggy
