@@ -9,9 +9,7 @@ MAIN FEATURE EXTRACTION CODE. Reads .wav file in the folder 'Recordings' and out
 
 import numpy as np
 import matplotlib.pyplot as plt
-import sounddevice as sd
-import plotly.io as pio
-import plotly.express as px
+import os
 import soundfile as sf
 from scipy.fftpack import dct
 import glob 
@@ -139,7 +137,8 @@ def cepstral_lifter(mfcc):
     
 def save_to_file(file_name, mfcc):
     #allow pickle!
-    np.save(file_name, mfcc, allow_pickle=True)
+    directory = os.path.join('mfccs', file_name)
+    np.save(directory, mfcc, allow_pickle=True)
 
 def main(file_dir, file_name):
 
@@ -185,10 +184,15 @@ def main(file_dir, file_name):
 
     #At this stage apply cepstral lifting if have time
     
+    #TRANSPOSE MATRIX SO IT FITS INTO MODEL SEQUENTIALLY
+    dft_mfccs = dft_mfccs.transpose()
+    
     #save file to .npy
     save_to_file(file_name, dft_mfccs)
     
+    #--------------------------------------------------------------------------
     #ALL DEBUGGING GRAPHS BELOW
+    #--------------------------------------------------------------------------
 
     #plot_dft(dft_mfccs) #create spectrogram for debugging
 
