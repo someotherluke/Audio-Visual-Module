@@ -1,4 +1,7 @@
 # Audio-Visual-Module
-Content for my Audio/Visual Module
+An organisation of personal and shared files for the audio-visual proccesing module
 
-Organised into folders for each Lab session for now but will be updated later to include project materials
+Contents;
+Lab Sessions
+Project 1: Speech recogniser
+Project 2: Lip reader
