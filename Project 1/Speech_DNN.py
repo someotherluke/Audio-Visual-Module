@@ -25,10 +25,10 @@ from sklearn import metrics
 
 
 
-def create_model():
+def create_model(max_frames):
     numClasses=2 #CHANGE THIS!
     model=Sequential()
-    model.add(InputLayer(input_shape=(12, 298, 1)))
+    model.add(InputLayer(input_shape=(12, max_frames, 1)))
     model.add(Conv2D(32, (3, 3), activation='relu'))
     model.add(Activation('relu'))
     model.add(Conv2D(64, (3, 3), activation='relu'))
@@ -70,10 +70,6 @@ for mfcc_file in sorted(glob.glob('mfccs/*.npy')):
     label = stemFilename.split('_')
     labels.append(label[0])
 
-
-
-
-
 #LLOOOONG 1D array of all the numbers
 labels = np.array(labels)
 
@@ -90,7 +86,7 @@ X_train, X_tmp, y_train, y_tmp = train_test_split(data,labels, test_size=0.2, ra
 X_val, X_test, y_val, y_test = train_test_split(X_tmp, y_tmp,test_size=0.5, random_state=0)
     
 #REMEMBER TO CREATE_MODEL EVERYTIME (SEE LAB)
-model = create_model()
+model = create_model(max_frames)
 model.compile(loss='categorical_crossentropy',metrics=['accuracy'], optimizer=Adam(learning_rate=0.01))
 model.summary()
 
