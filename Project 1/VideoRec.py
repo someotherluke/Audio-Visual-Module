@@ -13,6 +13,8 @@ import queue
 import sounddevice as sd
 import soundfile as sf
 
+import random as rnd
+
 class VideoRecorder(object):
     def __init__(self, video_file_name, output_name):
 
@@ -103,12 +105,18 @@ class AudioRecorder():
 
 if __name__ == '__main__':
     speaker = 'D'
-    recording_number = 3
-    name = 'Jake'
-    for file_number in range(0,recording_number):
-        file_number = str(file_number)
-        #Separate with underscores so it's easy to split
-        file_name = name + '_' + speaker + '_' + file_number # Will the order they're in matter?
-        print(file_name)
-        rec = VideoRecorder(file_name, file_name)
-        #TODO: QUESTIONS: BEST RESOLUTION? Using 1920 by 1080 makes it really laggy
+    #SETS THE NUMBER OF RECODINGS
+    recording_number = 1
+    name_list = ["Ben", "Charlie", "Chiedozie", "Carlos","El","Ethan",
+                 "Francesca","Jack","Jake","James","Lindon","Marc","Nischal",
+                 "Robin","Ryan","Sam","Seth","William","Bonney","Yubo"]
+    rnd.shuffle(name_list)
+    for name in name_list:
+
+        for file_number in range(0,recording_number):
+            file_number = str(file_number)
+            #Separate with underscores so it's easy to split
+            file_name = name + '_' + speaker + '_' + file_number # Will the order they're in matter?
+            print(file_name)
+            rec = VideoRecorder(file_name, file_name)
+            #TODO: QUESTIONS: BEST RESOLUTION? Using 1920 by 1080 makes it really laggy
