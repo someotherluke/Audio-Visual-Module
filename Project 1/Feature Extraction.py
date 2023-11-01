@@ -154,6 +154,33 @@ def cepstral_lifter(mfcc):#NOT CURRENTLY IMPLEMENTED
          row *= lifter
          i+=1
      return mfcc
+ 
+def velocity_acceleration(dft_mfccs):
+    #Begin by calculating velocities
+    velocity_vals = np.array([])
+    for i in range(0, dft_mfccs.shape[0]):      #Iterate over each frame of signal
+        for j in range(1,dft_mfccs.shape[1]-1):     #Iterate over each mfcc, missing out first and last mfcc
+            velocity = dft_mfccs[i, j+1] - dft_mfccs[i,j-1]     #Calculate velocity
+            velocity_vals = np.append(velocity_vals, velocity)
+    velocities_ordered = velocity_vals.reshape(dft_mfccs.shape[0], dft_mfccs.shape[1]-2)    #Reshape velocity into shape [FRAMES, MFCCS-2]
+    
+    #Before adding velocities to mfcc array, calculate accelerations
+    acceleration_vals = np.array([])
+    for i in range(0, velocities_ordered.shape[0]):      #Iterate over each velocity row corresponding to a frame of signal
+        for j in range(1, velocities_ordered.shape[1]-1):     #Iterate over each velocity value, missing out first and last one
+            acceleration = velocities_ordered[i, j+1] - velocities_ordered[i,j-1]     #Calculate acceleration
+            acceleration_vals = np.append(acceleration_vals, acceleration)
+    acceleration_ordered = acceleration_vals.reshape(velocities_ordered.shape[0], velocities_ordered.shape[1]-2)    #Reshape into shape [FRAMES, MFCCS-4]
+    
+    
+    velocities_ordered = velocities_ordered.transpose()     #Transpose ordered velocities so it's easier to add each column to mfcc data
+    acceleration_ordered = acceleration_ordered.transpose()     #Transpose ordered acceleration so it's easier to add each column to mfcc data
+    for i in range(0, velocities_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], velocities_ordered[i], axis=1)     #Append each column to the end of the mfcc array
+        
+    for i in range(0, acceleration_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], acceleration_ordered[i], axis=1)    #Append each column to the end of the mfcc array
+    return dft_mfccs
     
 def save_to_file(file_name, mfcc): #Let's us save proccessed files to speed up using data for DNN
     #Saves file to the folder 'mfccs' in directory
@@ -200,7 +227,8 @@ def main(file_dir, file_name):
     all_power_vals, energy_vals = entire_utterance(r)                  #Extract the power (and energy) values from each window of signal and add to big array
     
     
-    power_vals_shaped = np.reshape(all_power_vals, (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
+    power_vals_shaped = np.reshape(all_power_vals, 
+                                   (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
     
     #print(power_vals_shaped.shape, "POWER_VALS SHAPE")                #DEBUG PRINT
     
@@ -237,6 +265,9 @@ def main(file_dir, file_name):
     #Discard some MFCC's as the others represent fast changes in signal and don't contribute to recognition. 'Truncation' in the powerpoints
     keep_number = 39
     dft_mfccs = dct(logged_mfccs, axis=1, norm='ortho')[:, 0 : keep_number]   
+    
+    #Calculate velocity and acceleration and append to the dft_mfccs
+    dft_mfccs = velocity_acceleration(dft_mfccs)
             
     #add energy values to the end of each mfcc
     dft_mfccs = np.insert(dft_mfccs,dft_mfccs.shape[1],energy_vals,axis=1)
