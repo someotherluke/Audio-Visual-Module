@@ -64,11 +64,51 @@ def entire_utterance(speech): #Windows signal (Using above parameters) in overla
         
     return all_power, energy_vals
 
+def bark_scale(frequency):
+    return ((26.81*frequency)/(1960+frequency))-0.53
+
+def inverse_bark(frequency):
+    return (490*(53+100*frequency))/(657-25*frequency)
+
 def mel_scale(frequency):                                                                #Creating a function from the real frequency to the mel frequency
     return 2595*np.log10(1+(frequency/700))
 
 def inverse_mel(frequency):                                                              #Creating an inverse function from the mel frequency to true frequency
     return 700*(10**(frequency/2595) -1)
+
+def plot_barkscale(sample_frequency):
+    #Take sampling rate and upper and lower bounds of desired frequency
+    freq_high = sample_frequency/2                                                       #Maximum audible frequency 20khz, #So sample_frequency can be used provided smaple < 20khz, #Nyquist theorem means taking half of sample frequency
+    freq_low = 20                                                                        #Sets our minimum frequency around the minimum audible frequency for humans (on the assumption that noise outside this isn't releveant to speech)
+    
+    #Convert frequency max/min to barkscale
+    bark_freq_high = bark_scale(freq_high)                                                 #Sets the maximum bark frequency
+    bark_freq_low = bark_scale(freq_low)                                                   #Sets the minimum bark frequency
+    
+    bark_range = np.linspace(bark_freq_low, bark_freq_high, FILTER_NUMBER +2 )              #Evenly spaces the bark freqs between the high and low values - 2 added to filter_number so that the number of triangles is equal to our number of filters
+
+    freq_range = inverse_bark(bark_range)                                                  #Find true frequencies from the bark frequencies
+        
+    bins = np.floor((FRAME_LENGTH + 1) * (freq_range / sample_frequency))                #Convert frequencies into bins - 1 addedto frame length so that the number of bins 
+    
+    fbank = np.zeros((FILTER_NUMBER, int(np.floor(FRAME_LENGTH / 2 ))))                  #Creates a 2 dimensional array with size FILTER_NUMBER (number of mfccs) by FRAME_LENGTH (divide by 2 because of the nyquist adjustment earlier)
+    
+    #Code is a variation of: https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
+    #Define a left, middle and right bin
+    for m in range(1, FILTER_NUMBER + 1):
+        
+        f_m_minus = int(bins[m - 1])  #left bin value
+        f_m = int(bins[m])            #middle
+        f_m_plus = int(bins[m + 1])   #right bin value
+        
+        #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
+        for k in range(f_m_minus, f_m):
+            #k here is the column number
+            fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
+        #Iterate over the range of values between the centre bin and the right bin
+        for k in range(f_m, f_m_plus):
+            fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
+    return fbank  
     
 def plot_melscale(sample_frequency):
     #Take sampling rate and upper and lower bounds of desired frequency
@@ -134,8 +174,8 @@ def plot_all_filter_banks(filter_bank):#DEBUG
     #Plot all of the filters in the filter bank
     for m in filter_bank:
          plt.plot(m)
-         plt.xlim(0, FRAME_LENGTH/2 +3)    #Windowing our graph for presentation purposes
-         plt.ylim(0,1)                     #As above
+         #plt.xlim(0, FRAME_LENGTH/2 +3)    #Windowing our graph for presentation purposes
+         #plt.ylim(0,1)                     #As above
 
 def plot_signals(r, file_name):#DEBUG
     fig10, ax10 = plt.subplots()
@@ -154,11 +194,38 @@ def cepstral_lifter(mfcc):#NOT CURRENTLY IMPLEMENTED
          row *= lifter
          i+=1
      return mfcc
+ 
+def velocity_acceleration(dft_mfccs):
+    #Begin by calculating velocities
+    velocity_vals = np.array([])
+    for i in range(0, dft_mfccs.shape[0]):      #Iterate over each frame of signal
+        for j in range(1,dft_mfccs.shape[1]-1):     #Iterate over each mfcc, missing out first and last mfcc
+            velocity = dft_mfccs[i, j+1] - dft_mfccs[i,j-1]     #Calculate velocity
+            velocity_vals = np.append(velocity_vals, velocity)
+    velocities_ordered = velocity_vals.reshape(dft_mfccs.shape[0], dft_mfccs.shape[1]-2)    #Reshape velocity into shape [FRAMES, MFCCS-2]
+    
+    #Before adding velocities to mfcc array, calculate accelerations
+    acceleration_vals = np.array([])
+    for i in range(0, velocities_ordered.shape[0]):      #Iterate over each velocity row corresponding to a frame of signal
+        for j in range(1, velocities_ordered.shape[1]-1):     #Iterate over each velocity value, missing out first and last one
+            acceleration = velocities_ordered[i, j+1] - velocities_ordered[i,j-1]     #Calculate acceleration
+            acceleration_vals = np.append(acceleration_vals, acceleration)
+    acceleration_ordered = acceleration_vals.reshape(velocities_ordered.shape[0], velocities_ordered.shape[1]-2)    #Reshape into shape [FRAMES, MFCCS-4]
+    
+    
+    velocities_ordered = velocities_ordered.transpose()     #Transpose ordered velocities so it's easier to add each column to mfcc data
+    acceleration_ordered = acceleration_ordered.transpose()     #Transpose ordered acceleration so it's easier to add each column to mfcc data
+    for i in range(0, velocities_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], velocities_ordered[i], axis=1)     #Append each column to the end of the mfcc array
+        
+    for i in range(0, acceleration_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], acceleration_ordered[i], axis=1)    #Append each column to the end of the mfcc array
+    return dft_mfccs
     
 def save_to_file(file_name, mfcc): #Let's us save proccessed files to speed up using data for DNN
     #Saves file to the folder 'mfccs' in directory
     #allow pickle! To see why you may change this; https://stackoverflow.com/questions/41696360/numpy-consequences-of-using-np-save-with-allow-pickle-false
-    directory = os.path.join('mfccs', file_name)
+    directory = os.path.join('bfccs', file_name)
     np.save(directory, mfcc, allow_pickle=True)
     
     
@@ -195,12 +262,14 @@ def main(file_dir, file_name):
     #add noise to the signal, varied by the SNR coefficient
     #add_noise(r, 0)
 
-    filter_bank = plot_melscale(sample_frequency)                      #Calculate the filterbanks, with the same sampling frequency as the FFT
-    
+    filter_bank = plot_melscale(sample_frequency)                      #Calculate the filterbanks for mel, with the same sampling frequency as the FFT
+    filter_bank = plot_barkscale(sample_frequency)                      #Calculate the filterbanks for bark, with the same sampling frequency as the FFT
+
     all_power_vals, energy_vals = entire_utterance(r)                  #Extract the power (and energy) values from each window of signal and add to big array
     
     
-    power_vals_shaped = np.reshape(all_power_vals, (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
+    power_vals_shaped = np.reshape(all_power_vals, 
+                                   (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
     
     #print(power_vals_shaped.shape, "POWER_VALS SHAPE")                #DEBUG PRINT
     
@@ -237,6 +306,9 @@ def main(file_dir, file_name):
     #Discard some MFCC's as the others represent fast changes in signal and don't contribute to recognition. 'Truncation' in the powerpoints
     keep_number = 39
     dft_mfccs = dct(logged_mfccs, axis=1, norm='ortho')[:, 0 : keep_number]   
+    
+    #Calculate velocity and acceleration and append to the dft_mfccs
+    dft_mfccs = velocity_acceleration(dft_mfccs)
             
     #add energy values to the end of each mfcc
     dft_mfccs = np.insert(dft_mfccs,dft_mfccs.shape[1],energy_vals,axis=1)
@@ -255,13 +327,14 @@ def main(file_dir, file_name):
 
     #plt.plot(r)                         #Plots soundfile
 
-    #plot_all_filter_banks(filter_bank)  #Plots all of our filter banks 
+    plot_all_filter_banks(filter_bank)  #Plots all of our filter banks 
 
     #plot_signals(r, file_name)          #Plots graphs of signal for files being used
 
 # for testing
-#folder = debugging, for debugging
-#folder = Recordings for actual test
+#folder = debugging, for debugging       #Feature_extraction('debugging')
+#folder = Recordings for actual test     #Feature_extraction('Recordings')
+
 
 def Feature_extraction(folder):
     folder_name =  folder + '/*.wav'
