@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 Created on Sun Oct 15 09:40:37 2023
 
-@author: yad23rju
+@author: Dan and Luke
 
 MAIN FEATURE EXTRACTION CODE. Reads .wav file in the folder 'Recordings' and outputs mfcc's to folder ''mfccs'
 """
@@ -19,14 +18,14 @@ import glob
 
 #Audio modules
 import soundfile as sf
-
+import sounddevice as sd
 
 #Set parameters
 
 FRAME_LENGTH = 512 #Number of bins in each window (halved eventually). keep above 500 and even otherwise bin ranges are too small
 OVER_LAP = 1/2 #Sets the overlap of our windows
 STEP_LENGTH = int(FRAME_LENGTH * (OVER_LAP))
-FILTER_NUMBER = 40 #Number of triangle peaks each window is being multiplied by
+FILTER_NUMBER = 64 #Number of triangle peaks each window is being multiplied by
 
 def mag_and_phase(section): #Calculate the fast forier transform and power (Variation of absolute magnitude)
     section = np.array(section)                    #Stores a section of speech as a numpy array
@@ -50,8 +49,8 @@ def entire_utterance(speech): #Windows signal (Using above parameters) in overla
     #ALWAYS ROUNDING DOWN TO REMOVE THE WINDOW WITH NO OR PARTIAL SIGNAL, AND SUBTRACT 1 TO REMOVE FINAL FRAME
     num_frames = int(np.floor(num_frames-1))
 
-    all_power = np.array([])                                                                            #Create a power array for the loop
-    energy_vals = np.array([])                                                                          #Create a energy array for the loop
+    all_power = np.array([])                                                             #Create a power array for the loop
+    energy_vals = np.array([])                                                           #Create a energy array for the loop
 
     for i in range(0, num_frames):
         power = mag_and_phase(speech[STEP_LENGTH*i:STEP_LENGTH*i + FRAME_LENGTH])        #Find power from each window using funciton above
@@ -99,9 +98,12 @@ def plot_melscale(sample_frequency):
         for k in range(f_m_minus, f_m):
             #k here is the column number
             fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
+
         #Iterate over the range of values between the centre bin and the right bin
         for k in range(f_m, f_m_plus):
             fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
+
+
     return fbank  
 
 
@@ -122,11 +124,14 @@ def plot_dft(dft_mfccs):#DEBUG
     #Plot dft and spectrogram
     index = 10
     #Plot the dft just to check
-    figgy, axes = plt.subplots(2)
-    axes[0].plot(dft_mfccs[index])
+    figgy, axes = plt.subplots()
+    #axes[0].plot(dft_mfccs[index])
     #plot spectrogram of mfcc
     #plt.figure(figsize=(15,5))
-    axes[1].imshow(dft_mfccs, aspect='auto', origin='lower')
+    axes.imshow(dft_mfccs, aspect='auto', origin='lower')
+    axes.set_xlabel("Frames")
+    axes.set_ylabel("MFCC")
+    axes.set_title("'Charlie' MFCC spectrogram with 5dB noise - ceptral liftering and mean subtraction")
     #axes[2].specgram(dft_mfccs[3])
 
 
@@ -141,19 +146,32 @@ def plot_signals(r, file_name):#DEBUG
     fig10, ax10 = plt.subplots()
     ax10.plot(r)
     ax10.set_title(file_name)
-
-def cepstral_lifter(mfcc):#NOT CURRENTLY IMPLEMENTED
-    #'Ceptral lifting' see- https://maxwell.ict.griffith.edu.au/spl/publications/papers/euro99_kkp_fbe.pdf and https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=1165237
-    #Smooths out formant peaks - not currently implemented
-     num_filters = np.shape(mfcc)[1]
-     i = 0
-     lifter_coeff = 10 # arbitrary, good according to the source above
-     lifter = 1 + (lifter_coeff/2)*np.sin(np.pi*i/lifter_coeff)
-     for row in mfcc:
-         lifter = 1 + (lifter_coeff/2)*np.sin(np.pi*i/lifter_coeff)
-         row *= lifter
-         i+=1
-     return mfcc
+ 
+def velocity_acceleration(dft_mfccs):
+    #Begin by calculating velocities
+    velocity_vals = np.array([])
+    for i in range(0, dft_mfccs.shape[0]):      #Iterate over each frame of signal
+        for j in range(1,dft_mfccs.shape[1]-1):     #Iterate over each mfcc, missing out first and last mfcc
+            velocity = dft_mfccs[i, j+1] - dft_mfccs[i,j-1]     #Calculate velocity
+            velocity_vals = np.append(velocity_vals, velocity)
+    velocities_ordered = velocity_vals.reshape(dft_mfccs.shape[0], dft_mfccs.shape[1]-2)    #Reshape velocity into shape [FRAMES, MFCCS-2]
+    
+    #Before adding velocities to mfcc array, calculate accelerations
+    acceleration_vals = np.array([])
+    for i in range(0, velocities_ordered.shape[0]):      #Iterate over each velocity row corresponding to a frame of signal
+        for j in range(1, velocities_ordered.shape[1]-1):     #Iterate over each velocity value, missing out first and last one
+            acceleration = velocities_ordered[i, j+1] - velocities_ordered[i,j-1]     #Calculate acceleration
+            acceleration_vals = np.append(acceleration_vals, acceleration)
+    acceleration_ordered = acceleration_vals.reshape(velocities_ordered.shape[0], velocities_ordered.shape[1]-2)    #Reshape into shape [FRAMES, MFCCS-4]
+    
+    velocities_ordered = velocities_ordered.transpose()     #Transpose ordered velocities so it's easier to add each column to mfcc data
+    acceleration_ordered = acceleration_ordered.transpose()     #Transpose ordered acceleration so it's easier to add each column to mfcc data
+    for i in range(0, velocities_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], velocities_ordered[i], axis=1)     #Append each column to the end of the mfcc array
+        
+    for i in range(0, acceleration_ordered.shape[0]):     #Iterate over each mfcc value
+        dft_mfccs = np.insert(dft_mfccs, dft_mfccs.shape[1], acceleration_ordered[i], axis=1)    #Append each column to the end of the mfcc array
+    return dft_mfccs
     
 def save_to_file(file_name, mfcc): #Let's us save proccessed files to speed up using data for DNN
     #Saves file to the folder 'mfccs' in directory
@@ -163,8 +181,10 @@ def save_to_file(file_name, mfcc): #Let's us save proccessed files to speed up u
     
     
 def add_noise(signal, SNR):#NOT CURRENTLY IMPLEMENTED
-    noise = np.random.normal(0,0.1, len(signal)) #Creates normally distributed noise (white noise)
+    #noise = np.random.normal(0,0.1, len(signal)) #Creates normally distributed noise (white noise)
     
+    noise, freq = sf.read('noise.wav')
+    noise = noise[0:len(signal)]
     #Calculate the powers for the noise
     noise_power = np.mean(noise**2)
 
@@ -172,19 +192,31 @@ def add_noise(signal, SNR):#NOT CURRENTLY IMPLEMENTED
     
     #Calculate scaling factor for desired SNR
     alpha = np.sqrt((speech_power/noise_power)*10**-(SNR/10))
-    
+
     #Scale noise by alpha
-    noise_power_alpha = (noise * alpha)**2
+    noise_power_alpha = noise * alpha
     
     #Add noise to the signal
     speech_power_noised = noise_power_alpha + signal
     
+    """#Plots speech, noise and noisy speech
     fig29, ax29 = plt.subplots(3)
     ax29[0].plot(signal)
-    ax29[1].plot(speech_power_noised)
-    ax29[2].plot(noise)
+    ax29[0].set_title('Original Signal')
+
+    ax29[1].plot(noise_power_alpha)
+    ax29[1].set_title('Noise signal - 15 dB')
+    ax29[2].plot(speech_power_noised)
+    ax29[2].set_title('Noised signal')
+    ax29[2].set_xlabel("Signal")
+    fig29.text(0, 0.5, 'Amplitude', va='center', rotation='vertical')
+    fig29.tight_layout()
+    """
+    return speech_power_noised
+
+
     #noise_power_new = np.mean(noise_power_alpha)
-        
+
         
 def main(file_dir, file_name):
     r, fs2 = sf.read(file_dir, dtype='float32')                        #Read in file
@@ -193,14 +225,15 @@ def main(file_dir, file_name):
     r = r[3000:-115000]                                                #Take window of signal initially to remove long periods of silence from recording
 
     #add noise to the signal, varied by the SNR coefficient
-    #add_noise(r, 0)
+    #r = add_noise(r, 15)
 
     filter_bank = plot_melscale(sample_frequency)                      #Calculate the filterbanks, with the same sampling frequency as the FFT
     
     all_power_vals, energy_vals = entire_utterance(r)                  #Extract the power (and energy) values from each window of signal and add to big array
     
     
-    power_vals_shaped = np.reshape(all_power_vals, (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
+    power_vals_shaped = np.reshape(all_power_vals, 
+                                   (int((len(r)/FRAME_LENGTH)*(FRAME_LENGTH/STEP_LENGTH))-1, int(FRAME_LENGTH/2)))    #Reshape the power array such that each row corresponds to 1 frame of the FFT power values
     
     #print(power_vals_shaped.shape, "POWER_VALS SHAPE")                #DEBUG PRINT
     
@@ -223,7 +256,6 @@ def main(file_dir, file_name):
     filter_index = 23
     window_index = 1
     plot_filter(filter_index, window_index, power_vals_shaped, filter_bank, all_windows_filtered)
-    #######################
     """
     
     #Reshape the summed array into shape [WINDOW, FILTER]
@@ -235,8 +267,22 @@ def main(file_dir, file_name):
 
     #PERFORM DFT ON LOGGED VALUES
     #Discard some MFCC's as the others represent fast changes in signal and don't contribute to recognition. 'Truncation' in the powerpoints
-    keep_number = 39
+    keep_number = 40
     dft_mfccs = dct(logged_mfccs, axis=1, norm='ortho')[:, 0 : keep_number]   
+    
+    """#Apply cepstral liftering to see if that does anything. See https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
+    (nframes, ncoeff) = dft_mfccs.shape
+    n = np.arange(ncoeff)
+    cep_lifter = 22
+    lift = 1 + (cep_lifter / 2) * np.sin(np.pi * n / cep_lifter)
+    dft_mfccs *= lift
+    """
+    
+    #Subtract mean from dfts for noise reduction
+   # dft_mfccs -= np.mean(dft_mfccs, axis=0)
+
+    #Calculate velocity and acceleration and append to the dft_mfccs
+    dft_mfccs = velocity_acceleration(dft_mfccs)
             
     #add energy values to the end of each mfcc
     dft_mfccs = np.insert(dft_mfccs,dft_mfccs.shape[1],energy_vals,axis=1)
@@ -263,18 +309,17 @@ def main(file_dir, file_name):
 #folder = debugging, for debugging
 #folder = Recordings for actual test
 
-def Feature_extraction(folder):
-    folder_name =  folder + '/*.wav'
-    for audio_file in sorted(glob.glob(folder_name)):
-        #Remove file directory and .wav for naming purposes
-        audio_file_name = audio_file[11:-4]
-        
-        main(audio_file, audio_file_name)
-        
-        print(audio_file_name, 'done')
+#def Feature_extraction(folder):
+    #folder_name =  folder + '/*.wav'
+for audio_file in sorted(glob.glob('debugging/*.wav')):
+    #Remove file directory and .wav for naming purposes
+    audio_file_name = audio_file[11:-4]
     
-    print('Done entire data set')
+    main(audio_file, audio_file_name)
+    
+    print(audio_file_name, 'done')
 
-#TODO vary feature extraction methods:
-#ENERGY, TEMPORAL DERIVATIVES: VELOCITY, ACCELERATION
+print('Done entire data set')
+
+#TODO vary feature extraction methods:thu
 #'SPECTRAL LIFTERING' see- https://maxwell.ict.griffith.edu.au/spl/publications/papers/euro99_kkp_fbe.pdf
