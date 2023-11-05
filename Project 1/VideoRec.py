@@ -103,7 +103,7 @@ class AudioRecorder():
         audio_thread.start()
 
 
-if __name__ == '__main__':
+def record_audio():
     speaker = 'D'
     #SETS THE NUMBER OF RECODINGS
     recording_number = 1
@@ -120,3 +120,6 @@ if __name__ == '__main__':
             print(file_name)
             rec = VideoRecorder(file_name, file_name)
             #TODO: QUESTIONS: BEST RESOLUTION? Using 1920 by 1080 makes it really laggy
+            
+if __name__ == '__main__':
+    record_audio()
