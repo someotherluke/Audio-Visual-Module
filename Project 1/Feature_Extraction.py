@@ -28,6 +28,7 @@ import sounddevice as sd
 #over_Lap = 1/2 #Sets the overlap of our windows
 #step_length = 0 #int(frame_length * (over_Lap))
 #filter_number = 64 #Number of triangle peaks each window is being multiplied by
+filter_shape=''
 
 def mag_and_phase(section): #Calculate the fast forier transform and power (Variation of absolute magnitude)
     section = np.array(section)                    #Stores a section of speech as a numpy array
@@ -97,21 +98,36 @@ def plot_melscale(sample_frequency):
     
     #Code is a variation of: https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
     #Define a left, middle and right bin
-    for m in range(1, filter_number + 1):
-        
-        f_m_minus = int(bins[m - 1])  #left bin value
-        f_m = int(bins[m])            #middle
-        f_m_plus = int(bins[m + 1])   #right bin value
-        
-        #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
-        for k in range(f_m_minus, f_m):
-            #k here is the column number
-            fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
-
-        #Iterate over the range of values between the centre bin and the right bin
-        for k in range(f_m, f_m_plus):
-            fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
-
+    if filter_shape == "Triangle":
+        for m in range(1, filter_number + 1):
+            
+            f_m_minus = int(bins[m - 1])  #left bin value
+            f_m = int(bins[m])            #middle
+            f_m_plus = int(bins[m + 1])   #right bin value
+            
+            #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
+            for k in range(f_m_minus, f_m):
+                #k here is the column number
+                fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
+    
+            #Iterate over the range of values between the centre bin and the right bin
+            for k in range(f_m, f_m_plus):
+                fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
+    else:
+        for m in range(1, filter_number + 1):
+            
+            f_m_minus = int(bins[m - 1])  #left bin value
+            f_m = int(bins[m])            #middle
+            f_m_plus = int(bins[m + 1])   #right bin value
+            
+            #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
+            for k in range(f_m_minus, f_m):
+                #k here is the column number
+                fbank[m - 1, k] = 1
+    
+            #Iterate over the range of values between the centre bin and the right bin
+            for k in range(f_m, f_m_plus):
+                fbank[m - 1, k] = 1
 
     return fbank  
 
@@ -134,21 +150,36 @@ def plot_barkscale(sample_frequency):
     
     #Code is a variation of: https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html
     #Define a left, middle and right bin
-    for m in range(1, filter_number + 1):
-        
-        f_m_minus = int(bins[m - 1])  #left bin value
-        f_m = int(bins[m])            #middle
-        f_m_plus = int(bins[m + 1])   #right bin value
-        
-        #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
-        for k in range(f_m_minus, f_m):
-            #k here is the column number
-            fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
-
-        #Iterate over the range of values between the centre bin and the right bin
-        for k in range(f_m, f_m_plus):
-            fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
-
+    if filter_shape == "Triangle":
+        for m in range(1, filter_number + 1):
+            
+            f_m_minus = int(bins[m - 1])  #left bin value
+            f_m = int(bins[m])            #middle
+            f_m_plus = int(bins[m + 1])   #right bin value
+            
+            #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
+            for k in range(f_m_minus, f_m):
+                #k here is the column number
+                fbank[m - 1, k] = (k - bins[m - 1]) / (bins[m] - bins[m - 1])
+    
+            #Iterate over the range of values between the centre bin and the right bin
+            for k in range(f_m, f_m_plus):
+                fbank[m - 1, k] = (bins[m + 1] - k) / (bins[m + 1] - bins[m])
+    else:
+        for m in range(1, filter_number + 1):
+            
+            f_m_minus = int(bins[m - 1])  #left bin value
+            f_m = int(bins[m])            #middle
+            f_m_plus = int(bins[m + 1])   #right bin value
+            
+            #Iterate over the range of values between the left bin and the centre bin, adding to the fbank array
+            for k in range(f_m_minus, f_m):
+                #k here is the column number
+                fbank[m - 1, k] = 1
+    
+            #Iterate over the range of values between the centre bin and the right bin
+            for k in range(f_m, f_m_plus):
+                fbank[m - 1, k] = 1
 
     return fbank
 
