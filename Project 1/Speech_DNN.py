@@ -226,81 +226,81 @@ for file in file_paths:
     learning_rates = [0.001]
     batch_sizes = [16]
 
-#Iterate over the varying params
-for learning_rate in learning_rates:
-    for num_batch_size in batch_sizes:
-            #REMEMBER TO CREATE_MODEL EVERYTIME (SEE LAB)
-            model = create_model(max_frames, mfcc_length)
-            model.compile(loss='categorical_crossentropy',metrics=['accuracy'], optimizer=Adam(learning_rate=learning_rates))
-            model.summary()
-            num_epochs = 25
-            #Stop the network if val_accuracy isnt increasing
-            callback = tf.keras.callbacks.EarlyStopping(
-                monitor='val_accuracy',
-                min_delta=0.01,
-                patience=3,
-                verbose=1,
-                mode='auto',
-                baseline=None,
-                restore_best_weights=True,
-                start_from_epoch=2
-            )
-
-            #Train model
-            history = model.fit(X_train, y_train, validation_data=(X_val,y_val), batch_size=num_batch_size, epochs=num_epochs,verbose=1, callbacks=[callback])
-            
-            #Calc accuracy 
-            predicted_probs=model.predict(X_test,verbose=0)
-            predicted=np.argmax(predicted_probs,axis=1)
-            actual=np.argmax(y_test,axis=1)
-            accuracy = metrics.accuracy_score(actual, predicted)
-            
-            #Save accuracy to array
-            accuracies.append((str(accuracy) + ',' + file))
-            print(f'Accuracy: {accuracy * 100}%')
-            
-            #Determine where to save the files based on how good the accuracy is
-            if accuracy >= 0.80:
-                accuracy_folder = 'Over_80'
-            elif accuracy >= 0.70:
-                accuracy_folder = 'Over_70'
-            elif accuracy >= 0.60:
-                accuracy_folder = 'Over_60'
-            else:
-                accuracy_folder = 'Under_60'
-            save_path = os.path.join('CNN_results', accuracy_folder, file)
-            lr_batch_specification = '_LR_' + str(learning_rate).replace(".", "") + '_B_'+ str(num_batch_size)
-            #Create confusion
-            confusion_matrix = metrics.confusion_matrix(actual, predicted)
-            accuracies_matrix = np.append(accuracies_matrix, accuracy)
-            #Save confusion and create folder for it
-            save_confusion_matrix_as_image(confusion_matrix, name_list_old, save_path,lr_batch_specification)
-            
-            #Save weights
-            model.save_weights(save_path+'/'+file+'weights.h5')
-            
-            #plot model accuracy over time 
-            fig, ax = plt.subplots()
-            ax.plot(history.history['accuracy'])
-            ax.plot(history.history['val_accuracy'])
-            ax.set_title('Model Accuracy - LR: {} BS:{}'.format(learning_rates[0], num_batch_size)) 
-            ax.set_ylabel('Accuracy')
-            ax.set_xlabel('Epoch')
-            ax.legend(['Train', 'Validation'], loc='upper left')
-            plt.savefig(save_path+'/'+'Accuracy graph'+lr_batch_specification)
-            plt.show()
-            
-            #plot loss function
-            fig2, ax2 = plt.subplots()
-            ax2.plot(history.history['loss'])
-            ax2.plot(history.history['val_loss'])
-            ax2.set_title('Model Loss - LR: {} BS:{}'.format(learning_rates[0], num_batch_size)) 
-            ax2.set_ylabel('Loss')
-            ax2.set_xlabel('Epoch')
-            ax2.legend(['Train', 'Validation'], loc='upper left')
-            plt.savefig(save_path+'/'+'Loss graph'+lr_batch_specification)
-            plt.show()
-            
-            save_file('CNN_results/accuracies'+lr_batch_specification+'.txt', accuracies)
+    #Iterate over the varying params
+    for learning_rate in learning_rates:
+        for num_batch_size in batch_sizes:
+                #REMEMBER TO CREATE_MODEL EVERYTIME (SEE LAB)
+                model = create_model(max_frames, mfcc_length)
+                model.compile(loss='categorical_crossentropy',metrics=['accuracy'], optimizer=Adam(learning_rate=learning_rates))
+                model.summary()
+                num_epochs = 25
+                #Stop the network if val_accuracy isnt increasing
+                callback = tf.keras.callbacks.EarlyStopping(
+                    monitor='val_accuracy',
+                    min_delta=0.01,
+                    patience=3,
+                    verbose=1,
+                    mode='auto',
+                    baseline=None,
+                    restore_best_weights=True,
+                    start_from_epoch=2
+                )
+    
+                #Train model
+                history = model.fit(X_train, y_train, validation_data=(X_val,y_val), batch_size=num_batch_size, epochs=num_epochs,verbose=1, callbacks=[callback])
+                
+                #Calc accuracy 
+                predicted_probs=model.predict(X_test,verbose=0)
+                predicted=np.argmax(predicted_probs,axis=1)
+                actual=np.argmax(y_test,axis=1)
+                accuracy = metrics.accuracy_score(actual, predicted)
+                
+                #Save accuracy to array
+                accuracies.append((str(accuracy) + ',' + file))
+                print(f'Accuracy: {accuracy * 100}%')
+                
+                #Determine where to save the files based on how good the accuracy is
+                if accuracy >= 0.80:
+                    accuracy_folder = 'Over_80'
+                elif accuracy >= 0.70:
+                    accuracy_folder = 'Over_70'
+                elif accuracy >= 0.60:
+                    accuracy_folder = 'Over_60'
+                else:
+                    accuracy_folder = 'Under_60'
+                save_path = os.path.join('CNN_results', accuracy_folder, file)
+                lr_batch_specification = '_LR_' + str(learning_rate).replace(".", "") + '_B_'+ str(num_batch_size)
+                #Create confusion
+                confusion_matrix = metrics.confusion_matrix(actual, predicted)
+                accuracies_matrix = np.append(accuracies_matrix, accuracy)
+                #Save confusion and create folder for it
+                save_confusion_matrix_as_image(confusion_matrix, name_list_old, save_path,lr_batch_specification)
+                
+                #Save weights
+                model.save_weights(save_path+'/'+file+'weights.h5')
+                
+                #plot model accuracy over time 
+                fig, ax = plt.subplots()
+                ax.plot(history.history['accuracy'])
+                ax.plot(history.history['val_accuracy'])
+                ax.set_title('Model Accuracy - LR: {} BS:{}'.format(learning_rates[0], num_batch_size)) 
+                ax.set_ylabel('Accuracy')
+                ax.set_xlabel('Epoch')
+                ax.legend(['Train', 'Validation'], loc='upper left')
+                plt.savefig(save_path+'/'+'Accuracy graph'+lr_batch_specification)
+                plt.show()
+                
+                #plot loss function
+                fig2, ax2 = plt.subplots()
+                ax2.plot(history.history['loss'])
+                ax2.plot(history.history['val_loss'])
+                ax2.set_title('Model Loss - LR: {} BS:{}'.format(learning_rates[0], num_batch_size)) 
+                ax2.set_ylabel('Loss')
+                ax2.set_xlabel('Epoch')
+                ax2.legend(['Train', 'Validation'], loc='upper left')
+                plt.savefig(save_path+'/'+'Loss graph'+lr_batch_specification)
+                plt.show()
+                
+                save_file('CNN_results/accuracies'+lr_batch_specification+'.txt', accuracies)
 
 print('Done')
