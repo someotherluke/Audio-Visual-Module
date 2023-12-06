@@ -1,0 +1,222 @@
+
+%NEXT STEP: RESAMPLE VIDEO
+
+videoFolder = 'debugging';
+videoFiles = dir(fullfile(videoFolder, '*.mp4'));
+% Initialize cell arrays to store data
+height_cell = cell(1, length(videoFiles));
+width_cell = cell(1, length(videoFiles));
+area_cell = cell(1, length(videoFiles));
+
+for fileIdx = 1:length(videoFiles)
+    % Read the video file
+    % Construct the full path to the current video file
+    videoFile = fullfile(videoFolder, videoFiles(fileIdx).name);
+    
+    disp(['Processing video: ', videoFile]);
+    
+    videoObj = VideoReader(videoFile);
+    
+    %Change to 1 if want to output a video of the binary lips
+    output_video = 0;
+    if output_video
+        % Create a video writer object to save the normalized video
+        outputVideoFile = 'video_new18.mp4';
+        outputVideoObj = VideoWriter(outputVideoFile, 'MPEG-4');
+        outputVideoObj.FrameRate = videoObj.FrameRate;
+        open(outputVideoObj);
+    end
+    
+
+    %%%%mahal
+    %roirect = [78,37,115,57];
+    
+    %UNCOMMENT ALL THIS STUFF IN ORDER TO CHANGE THE COLOUR OF THE LIPS
+    %THAT'S BEING READ - COMMENT OUT LOAD.
+    firstFrame = read(videoObj, 1);
+    %normalizedFrame = double(firstFrame) ./ sum(double(firstFrame), 3);
+    %normalizedFrame = imcrop(normalizedFrame, roirect);
+    %imshow(normalizedFrame)
+    %roirect_2 = getrect;
+    %roirect_2 = [90,	64.0000000000000,	17,	11.0000000000000];
+    %A1 = imcrop(normalizedFrame,roirect_2);
+    roirect = [872.750000000000,584.750000000000,258.000000000000,157.500000000000];
+    %figure;
+    %imshow(A1)
+    %save('colour_lips.mat', 'A1');
+    load('colour_lips.mat', 'A1');
+    subset_R = A1(:,:,1);
+    subset_G = A1(:,:,2);
+    subset_B = A1(:,:,3);
+
+    % Initialize variables for the current video
+    frame_number = 1;
+    height_video = [];
+    width_video = [];
+    area_video = [];
+    
+    %debugging
+    bin_image_video = [];
+    
+    % Loop through each frame of the video
+    while hasFrame(videoObj)
+        % Read the current frame
+        frame = readFrame(videoObj);
+    
+        % Crop frame to just lips (assuming roirect is defined)
+        frame = imcrop(frame, roirect);
+
+        % Perform binary lips extraction
+        [area, height, width, binary_lip_image, boundingBox, lip_mask] = binary_lips(frame, subset_R,subset_G,subset_B);
+    
+        % Append data to video-specific arrays
+        height_video(frame_number) = height;
+        width_video(frame_number) = width;
+        area_video(frame_number) = area;
+
+    
+        % Write the normalized frame to the output video (if needed)
+        if output_video
+            %binary_lip_image_with_bbox = insertShape(single(binary_lip_image), 'Rectangle', boundingBox, 'Color', 'red', 'LineWidth', 2);
+            
+            %writeVideo(outputVideoObj, binary_lip_image_with_bbox);
+            %For the area mask instead
+            writeVideo(outputVideoObj, lip_mask);
+        end
+        frame_number = frame_number + 1;
+    end
+    
+    %interp arrays:
+    interp_factor = 16000/videoObj.FrameRate;
+    height_video = interp_array(height_video,interp_factor);
+    width_video = interp_array(width_video,interp_factor);
+    area_video = interp_array(area_video,interp_factor);
+    
+    % Store video-specific arrays in cell arrays
+    height_cell{fileIdx} = height_video';
+    width_cell{fileIdx} = width_video';
+    area_cell{fileIdx} = area_video';
+    
+    
+    % Close the current video file
+    disp(['Finished processing video: ', videoFile]);
+    if output_video
+        close(outputVideoObj);
+    end
+end
+
+maxLength = max(cellfun(@numel, height_cell));
+
+% Pad each array in cell arrays to have the same length
+height_cell = cellfun(@(x) [x; nan(maxLength - numel(x), 1)], height_cell, 'UniformOutput', false);
+width_cell = cellfun(@(x) [x; nan(maxLength - numel(x), 1)], width_cell, 'UniformOutput', false);
+area_cell = cellfun(@(x) [x; nan(maxLength - numel(x), 1)], area_cell, 'UniformOutput', false);
+
+% Convert cell arrays to matrices
+height_array = cell2mat(height_cell);
+width_array = cell2mat(width_cell);
+area_array = cell2mat(area_cell);
+
+% Save the overall data to a CSV file
+outputData = [];
+
+for fileIdx = 1:length(videoFiles)
+    % Concatenate height, width, and area for each video file
+    outputData = [outputData, height_cell{fileIdx}, width_cell{fileIdx}, area_cell{fileIdx}];
+end
+
+%REMEBER TO COMMENT THIS BACK IN
+csvwrite('\\ueahome4\stusci4\yad23rju\data\Documents\Audiovisual\courseowrk\DNN\Feature Extraction\height_width_area.csv', outputData);
+
+disp("DONE!")
+function array_interped = interp_array(array, interp_factor)
+
+    %interp the visual features
+    number_original = linspace(1,10,length(array));
+    interp_array = linspace(1,10,length(array)*interp_factor);
+
+    array_interped = interp1(number_original, array, interp_array, 'spline');
+end
+
+function [area_lips, height_lips, width_lips, bin_image, boundingBox, lipMask] = binary_lips(input_frame,  subset_R,subset_G,subset_B)
+    % Normalize the color channels
+    normalizedFrame = double(input_frame) ./ sum(double(input_frame), 3);
+    
+    % Scale the values back to the range [0, 1]
+    %normalizedFrame = normalizedFrame / max(normalizedFrame(:));
+    
+    % Convert back to uint8 for display
+    %normalizedFrame = uint8(normalizedFrame * 255);
+    
+    %Select colour channels
+    R = normalizedFrame(:,:,1);
+    G = normalizedFrame(:,:,2);
+    B = normalizedFrame(:,:,3);
+
+    %CHANGE THIS WHEN YOU KNOW WHAT IT IS
+    %roirect = [814.250000000000,688.250000000000,279.000000000000,189]; 
+
+    mahal_dist = mahal(double([R(:),G(:),B(:)]),double([subset_R(:),subset_G(:),subset_B(:)]));
+
+    mahal_dist  = reshape(mahal_dist, size(G,1), size(G,2));
+    
+    bin_image =mahal_dist < std(mahal_dist(:))*1.5;
+    
+    kernel = strel('disk', 5);
+    kernel_2 = strel('disk', 2);
+    
+    %bin_image = imopen(bin_image, kernel);
+    %bin_image = imclose(bin_image, kernel);
+    bin_image = imdilate(bin_image, kernel);
+    bin_image = imdilate(bin_image, kernel_2);
+    %bin_image = imerode(bin_image, kernel_2);
+
+    % Label connected components in the binary image
+    labeledImage = bwlabel(bin_image);
+
+    % Measure properties of connected components using regionprops
+    stats = regionprops(labeledImage, 'BoundingBox', 'Area');
+
+    % Find the region with the largest area (assuming lips are the largest connected component)
+    [~, maxAreaIdx] = max([stats.Area]);
+
+    % Get the bounding box and area of the largest connected component (lips)
+    boundingBox = stats(maxAreaIdx).BoundingBox;
+    % Extract width and height from the bounding box
+    width_lips = boundingBox(3);
+    height_lips = boundingBox(4);
+    %area_lips = stats(maxAreaIdx).Area;
+    
+    
+    %%%%%%%%%
+    contourData = bwboundaries(bin_image);
+
+    % Find the contour with the maximum area (assumed to be the lips)
+    maxArea = 0;
+    maxIdx = 0;
+    for i = 1:length(contourData)
+        currentArea = polyarea(contourData{i}(:, 2), contourData{i}(:, 1));
+        if currentArea > maxArea
+            maxArea = currentArea;
+            maxIdx = i;
+        end
+    end
+
+    % Create a mask for the lips
+    lipMask = zeros(size(bin_image));
+    lipContour = contourData{maxIdx};
+    lipMask(sub2ind(size(lipMask), lipContour(:, 1), lipContour(:, 2))) = 1;
+
+    % Calculate the area of the lips
+    lipArea = sum(lipMask(:));
+
+    %DEBUGGING
+    imshow(bin_image,[])
+    %imshow(lipMask,[])
+
+
+    area_lips = lipArea;
+
+
+end
+
