@@ -1,0 +1,84 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Dec  3 08:05:09 2023
+
+@author: yad23rju
+"""
+
+import numpy as np
+from scipy.fftpack import dct    #discrete cosine transform library
+
+#Plotting modules
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
+
+#Folder Access
+import os
+import glob 
+import subprocess
+import time
+
+#Audio modules
+import soundfile as sf
+import sounddevice as sd
+
+#Change to 1 if you want to open matlab and run the script to process the videos
+#YOU MUST DELETE 'height_width_area.csv' IF YOU WANT TO GET NEW DATA
+
+#data file matlab outputs:
+data_file = 'height_width_area_08.csv'  
+
+matlab_data = np.loadtxt(data_file, delimiter=',')
+
+
+#%%
+column_index = 0
+for audio_file in sorted(glob.glob('New_New_Recordings/*.wav')):
+    #Remove file directory and .wav for naming purposes
+    audio_file_name = audio_file[19:-4] #FOR 'Recordings' WAS [11:-4]. For New_New_Recordings was [19:-4]
+    print(audio_file_name)
+    
+    height = matlab_data[:, column_index]
+    width = matlab_data[:, column_index+1]
+    area = matlab_data[:, column_index+2]
+    eccen = matlab_data[:, column_index+3]
+    
+    #Remove nans
+    height = height[~np.isnan(height)]
+    width = width[~np.isnan(width)]
+    area = area[~np.isnan(area)]
+    
+    num_splitting = 200
+    idx = np.round(np.linspace(0, len(height) - 1, num_splitting)).astype(int)
+    height = height[idx]
+    width = width[idx]
+    area = area[idx]
+    eccen = eccen[idx]
+    
+    area = savgol_filter(area, 100, 3)
+    width = savgol_filter(width, 100, 3)
+    height = savgol_filter(height, 100, 3)
+    eccen = savgol_filter(eccen, 100, 3)
+    
+
+    fig1, ax18 = plt.subplots()
+    ax28 = ax18.twinx()
+
+    ax18.plot(height, 'g-')
+    #ax1.plot(width, 'r-')
+    ax28.plot(area, 'r-')
+    ax28.set_title('Area against height for {}'.format(audio_file_name))
+    ax18.set_xlabel('Time')
+    ax18.set_ylabel('Height (Pixels)',  color ='g')
+    ax28.set_ylabel('Area (Pixels)',  color ='r')
+
+    
+    vis_data = np.column_stack((height,width,area,eccen))
+    vis_data = vis_data.transpose()
+    column_index = column_index+4
+
+    directory = os.path.join('debugging', audio_file_name) #CHANGE DIRECTORY!!!!!!!!!
+
+    np.save(directory, vis_data, allow_pickle=True)
+    print(directory, "DONE")
+    
